@@ -704,6 +704,8 @@
         <p>Whether to store your algorithm data locally (the data still never leaves your device). If this is turned off, your feed will start from scratch every time.</p>
         <label>Open links in English Wikipedia<input id="setting-openMainWiki" type=checkbox></label>
         <p>The articles are pulled from Simple English Wikipedia, but you can choose to still open them in (non-Simple) English Wikipedia.</p>
+        <label>Filter NSFW content<input id="setting-filterNSFW" type=checkbox></label>
+        <p>Hide articles related to adult and sexual content from the feed.</p>
 <label>Open articles in side panel<input id="setting-sidePanel" type=checkbox></label>
         <p>Open Wikipedia articles in a side panel instead of a new tab.</p>
         <pseudo-label>Theme
@@ -801,6 +803,7 @@
         const baseSettings = {
             storeData: true,
             openMainWiki: true,
+            filterNSFW: false,
             sidePanel: true,
             dataSize: 228005406,
             profile: "default",
@@ -812,6 +815,7 @@
         document.querySelector(`#${computedSettings.theme}`).checked = true;
         document.getElementById("setting-storeData").checked = computedSettings.storeData;
         document.getElementById("setting-openMainWiki").checked = computedSettings.openMainWiki;
+        document.getElementById("setting-filterNSFW").checked = computedSettings.filterNSFW;
         document.getElementById("setting-sidePanel").checked = computedSettings.sidePanel;
         return computedSettings;
     }
@@ -820,6 +824,7 @@
         settings.theme = document.querySelector('[name=theme]:checked')?.id ?? "theme-auto";
         settings.storeData = document.getElementById("setting-storeData").checked;
         settings.openMainWiki = document.getElementById("setting-openMainWiki").checked;
+        settings.filterNSFW = document.getElementById("setting-filterNSFW").checked;
         settings.sidePanel = document.getElementById("setting-sidePanel").checked;
         localStorage.setItem("xikipedia-settings", JSON.stringify(settings));
     }
@@ -1345,6 +1350,22 @@ function createNextPost() {
         document.querySelector(".posts").appendChild(postDiv);
     }
 
+    const NSFW_CATEGORIES = [
+        "human sexuality", "pornography", "erotic", "nudity", "sexual fetishism",
+        "prostitution", "sex work", "adult content", "sexual acts", "sexual slang",
+        "bdsm", "adult film", "sex industry", "penis", "vagina", "breasts",
+    ];
+
+    function isNSFW(post) {
+        for (const cat of post.allCategories) {
+            if (typeof cat !== "string") continue;
+            const lower = cat.toLowerCase();
+            for (const term of NSFW_CATEGORIES)
+                if (lower.includes(term)) return true;
+        }
+        return false;
+    }
+
     function getNextPost() {
         let potentialPosts = [...Array(10000)].map(e=>pagesArr[Math.floor(Math.random()*pagesArr.length)]).map(post => {
             const initialScore = (post.thumb ? 5 : 0) + (3**(post.seen??0)-1)*-50000;
@@ -1353,6 +1374,8 @@ function createNextPost() {
             post.score = postScore;
             return post;
         });
+        if (settings.filterNSFW)
+            potentialPosts = potentialPosts.filter(p => !isNSFW(p));
         let highestScore = -Infinity;
         let bestPost = potentialPosts[0];
 
